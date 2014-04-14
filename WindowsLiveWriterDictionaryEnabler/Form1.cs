@@ -74,7 +74,7 @@ namespace WindowsLiveWriterDictionaryEnabler
         {
             var path = string.Empty;
             var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\" + fileName, false) ?? Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\"+fileName, false);
-            if (key != null) path = Path.Combine(key.GetValue(keyName).ToString(), directory);
+            if (key != null) path = Path.Combine(keyName == null ? Path.GetDirectoryName(key.GetValue(keyName).ToString()) : key.GetValue(keyName).ToString(), directory);
             return path;
         }
 
