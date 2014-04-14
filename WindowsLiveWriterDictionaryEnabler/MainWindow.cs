@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -13,7 +14,7 @@ using System.Windows.Forms;
 
 namespace WindowsLiveWriterDictionaryEnabler
 {
-    public partial class Form1 : Form
+    public partial class MainWindow : Form
     {
 
         class Dictionary
@@ -25,11 +26,11 @@ namespace WindowsLiveWriterDictionaryEnabler
             }
         }
 
-        public Form1()
+        public MainWindow()
         {
             InitializeComponent();
-            btEnableLanguages.Enabled = DictionariesAvailable().Count > 0;
-            lbAvailableLanguages.DataSource = DictionariesAvailable();
+            btEnableLanguages.Enabled = DictionariesAvailable().Count() > 0;
+            lbAvailableLanguages.DataSource = DictionariesAvailable().ToList();
         }
 
         private void CopyLanguage(Dictionary language)
@@ -50,43 +51,24 @@ namespace WindowsLiveWriterDictionaryEnabler
             }
         }
 
-        private List<Dictionary> DictionariesAvailable()
+        /// <summary>
+        /// Returns a list of the languages of the dictionaries that are currently installed in the local machine
+        /// </summary>
+        /// <returns></returns>
+        private IEnumerable<Dictionary> DictionariesAvailable()
         {
             var officePath = GetOfficePath();
-            if (!string.IsNullOrWhiteSpace(officePath))
-            {
-                var files = Directory.GetFiles(officePath, "mssp*.lex").Select(x => Path.GetFileNameWithoutExtension(x).Split(new char[] { '7' }).Last());
-                var languages = new List<CultureInfo>();
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        languages.Add(new CultureInfo(file));
-                    }
-                    catch { }
-                }
-                return languages.Select(x => new Dictionary() { CultureInfo = x }).ToList();
-            } 
-            return null;
+            if (string.IsNullOrWhiteSpace(officePath)) return null;
+            var files = from x in Directory.GetFiles(officePath, "mssp*.lex")
+                    select Path.GetFileNameWithoutExtension(x).Split(new char[] { '7' }).Last();
+            return from x in CultureInfo.GetCultures(CultureTypes.NeutralCultures)
+                   where files.Any(y => y.ToLowerInvariant() == x.TwoLetterISOLanguageName.ToLowerInvariant())
+                   select new Dictionary() { CultureInfo = x };
         }
 
-        private string GetProgramPath(string fileName, string keyName, string directory)
-        {
-            var path = string.Empty;
-            var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\" + fileName, false) ?? Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\"+fileName, false);
-            if (key != null) path = Path.Combine(keyName == null ? Path.GetDirectoryName(key.GetValue(keyName).ToString()) : key.GetValue(keyName).ToString(), directory);
-            return path;
-        }
+        private Func<string> GetOfficePath = () => Util.GetProgramPath("Winword.exe", "Path", "PROOF");
 
-        private string GetOfficePath()
-        {
-            return GetProgramPath("Winword.exe", "Path", "PROOF");
-        }
-
-        private string GetLiveWriterPath()
-        {
-            return GetProgramPath("WindowsLiveWriter.exe", null, "Dictionaries");
-        }
+        private Func<string> GetLiveWriterPath = () => Util.GetProgramPath("WindowsLiveWriter.exe", null, "Dictionaries");
 
         private void btEnableLanguages_Click(object sender, EventArgs e)
         {
